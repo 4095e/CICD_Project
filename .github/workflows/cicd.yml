@@ -28,5 +28,5 @@ jobs:
         run: |
           echo "$DEPLOY_KEY" > deploy_key
           chmod 600 deploy_key
-          scp -o StrictHostKeyChecking=no -i deploy_key -r ./build azureuser@52.170.210.111:/var/www/app
+          scp -o StrictHostKeyChecking=no -i deploy_key -r ./build azureuser@40.71.88.123:/var/www/app
           rm deploy_key
