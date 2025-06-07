@@ -1,12 +1,9 @@
-
 const express = require('express');
 const lodash = require('lodash');
 const minimatch = require('minimatch');
 
-
 const app = express();
 const port = 3000;
-
 
 // Example usage of dependencies
 app.get('/', (req, res) => {
@@ -15,7 +12,10 @@ app.get('/', (req, res) => {
   res.send(`${obj.message} (Pattern match: ${pattern})`);
 });
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
-app.listen(port, () => {
-  console.log(`App running on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`App running on http://0.0.0.0:${port}`);
 });
