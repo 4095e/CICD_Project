@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - master
+      - main
 
 jobs:
-  build:
+  security-scan:
     runs-on: ubuntu-latest
+    name: Security Scan
     steps:
       - uses: actions/checkout@v3
       
@@ -26,28 +28,90 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
+
+  build:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
           
-      - name: Build
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build application
         run: npm run build
         
-      - name: Deploy to server
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-files
+          path: |
+            index.js
+            package.json
+            build/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-files
+          
+      - name: Deploy to Azure VM
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
-          echo "$DEPLOY_KEY" > deploy_key
-          chmod 600 deploy_key
-          
-          # Copy application files to VM
-          scp -o StrictHostKeyChecking=no -i deploy_key package.json azureuser@52.170.210.111:/var/www/app/
-          scp -o StrictHostKeyChecking=no -i deploy_key index.js azureuser@52.170.210.111:/var/www/app/
-          
-          # Install dependencies and restart app on VM
-          ssh -o StrictHostKeyChecking=no -i deploy_key azureuser@52.170.210.111 << 'ENDSSH'
-            cd /var/www/app
-            npm install
-            pkill -f "node index.js" || true
-            nohup npm start > app.log 2>&1 &
-            echo "Application deployed and started"
-ENDSSH
-          
-          rm deploy_key
+          if [ -n "$DEPLOY_KEY" ]; then
+            echo "🚀 Deploying to VM 52.170.210.111..."
+            echo "$DEPLOY_KEY" > deploy_key
+            chmod 600 deploy_key
+            
+            # Ensure deployment directory exists on VM
+            ssh -o StrictHostKeyChecking=no -i deploy_key azureuser@52.170.210.111 \
+              "sudo mkdir -p /var/www/app && sudo chown azureuser:azureuser /var/www/app"
+            
+            # Copy application files to VM
+            scp -o StrictHostKeyChecking=no -i deploy_key package.json azureuser@52.170.210.111:/var/www/app/
+            scp -o StrictHostKeyChecking=no -i deploy_key index.js azureuser@52.170.210.111:/var/www/app/
+            
+            # Deploy and start application on VM
+            ssh -o StrictHostKeyChecking=no -i deploy_key azureuser@52.170.210.111 'bash -s' << 'ENDSSH'
+              cd /var/www/app
+              echo "📦 Installing dependencies..."
+              npm install --production
+              
+              echo "🛑 Stopping existing application..."
+              pkill -f "node index.js" || true
+              sleep 2
+              
+              echo "🚀 Starting application..."
+              nohup npm start > app.log 2>&1 &
+              sleep 3
+              
+              echo "✅ Application deployed and started"
+              echo "🌐 Access at: http://52.170.210.111:3000"
+              
+              # Verify application is running
+              if pgrep -f "node index.js" > /dev/null; then
+                echo "✅ Application is running (PID: $(pgrep -f 'node index.js'))"
+              else
+                echo "❌ Application failed to start"
+                echo "📋 Last 10 lines of app.log:"
+                tail -10 app.log || echo "No log file found"
+              fi
+            
+            rm deploy_key
+            echo "✅ Deployment completed successfully"
+          else
+            echo "⚠️  Deployment skipped: DEPLOY_KEY not configured"
+          fi
