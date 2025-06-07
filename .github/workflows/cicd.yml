@@ -1,0 +1,26 @@
+name: CI/CD Pipeline for Node.js App
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+      - name: Deploy to server
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          echo "$DEPLOY_KEY" > deploy_key
+          chmod 600 deploy_key
+          scp -o StrictHostKeyChecking=no -i deploy_key -r ./build azureuser@YOUR_VM_IP:/var/www/app
+          rm deploy_key
