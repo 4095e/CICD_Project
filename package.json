@@ -1,23 +1,23 @@
 {
-
   "name": "devsecops-sample-app",
   "version": "1.0.0",
   "description": "Sample Node.js app for DevSecOps pipeline analysis",
   "master": "index.js",
   "scripts": {
     "start": "node index.js",
-    "build": "mkdir -p build && cp -r index.js package.json build/ && echo 'Build completed'",
+    "build": "mkdir -p build && cp -r index.js package.json build/ && echo 'Build complete' > build/build.txt",
     "test": "echo 'Running tests' && exit 0"
   },
-  "keywords": ["devsecops", "node", "ci-cd"],
+  "keywords": [
+    "devsecops",
+    "node",
+    "ci-cd"
+  ],
   "author": "Suryansh Mathema",
   "license": "MIT",
   "dependencies": {
-    "express": "4.17.0",
-    "lodash": "4.17.11",
-    "minimatch": "3.0.4"
-  },
-  "devDependencies": {
-    "snyk": "^1.685.0"
+    "express": "^4.21.2",
+    "lodash": "4.17.21",
+    "minimatch": "^3.1.2"
   }
 }
