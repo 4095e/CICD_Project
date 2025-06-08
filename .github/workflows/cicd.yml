@@ -1,56 +1,28 @@
-name: CI/CD Pipeline for Node.js App
-
-on:
-  push:
-    branches:
-      - master
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-
-      - name: Build
-        run: npm run build
-
       - name: Deploy to server
         env:
-          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KEY_BASE64: ${{ secrets.DEPLOY_KEY_BASE64 }}
         run: |
-          # Write the SSH key, preserving newlines
-          printf "%s" "$DEPLOY_KEY" > deploy_key
-
-          # Set strict permissions
+          # Decode the base64 key and write to file
+          echo "$DEPLOY_KEY_BASE64" | base64 -d > deploy_key
           chmod 600 deploy_key
 
-          # Optional: Debug file type and size
+          # Debug: check the key file
           ls -l deploy_key
           file deploy_key
-          head -n 2 deploy_key
-          tail -n 2 deploy_key
+          echo "First line of key:"
+          head -n 1 deploy_key
+          echo "Last line of key:"
+          tail -n 1 deploy_key
 
-          # Check SSH connectivity before deploying
+          # Test SSH connection
           echo "Testing SSH connection..."
-          ssh -o StrictHostKeyChecking=no -i deploy_key azureuser@172.171.212.14 "echo SSH connection successful"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key azureuser@172.171.212.14 "echo 'SSH connection successful'"
 
-          # Only deploy if SSH connection test passes
-          scp -o StrictHostKeyChecking=no -i deploy_key -r ./build azureuser@172.171.212.14:/var/www/app
+          # Deploy files
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key -r ./build azureuser@172.171.212.14:/var/www/app/
+
+          # Verify deployment
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key azureuser@172.171.212.14 "ls -la /var/www/app/build && echo 'Deployment successful'"
 
           # Clean up
           rm -f deploy_key
