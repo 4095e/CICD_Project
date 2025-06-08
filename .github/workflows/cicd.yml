@@ -33,23 +33,33 @@ jobs:
         env:
           DEPLOY_KEY_BASE64: ${{ secrets.DEPLOY_KEY_BASE64 }}
         run: |
-          # Decode the base64 key and write to file with proper formatting
-          echo "$DEPLOY_KEY_BASE64" | base64 -d > deploy_key
-          echo "" >> deploy_key  # Ensure proper line ending
-          chmod 600 deploy_key
+          # Create SSH directory
+          mkdir -p ~/.ssh
+
+          # Decode and write SSH key with proper formatting
+          echo "$DEPLOY_KEY_BASE64" | base64 -d > ~/.ssh/deploy_key
+
+          # Set strict permissions
+          chmod 600 ~/.ssh/deploy_key
+
+          # Validate the key format
+          if ! ssh-keygen -l -f ~/.ssh/deploy_key &>/dev/null; then
+            echo "ERROR: Invalid SSH key format"
+            exit 1
+          fi
+
+          echo "SSH key validated successfully"
 
           # Test SSH connection
           echo "Testing SSH connection..."
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key azureuser@172.171.212.14 "echo 'SSH connection successful'"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i ~/.ssh/deploy_key azureuser@172.171.212.14 "echo 'SSH connection successful'"
 
           # Deploy files to server
           echo "Deploying files..."
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key -r ./build azureuser@172.171.212.14:/var/www/app/
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i ~/.ssh/deploy_key -r ./build azureuser@172.171.212.14:/var/www/app/
 
           # Verify deployment
           echo "Verifying deployment..."
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i deploy_key azureuser@172.171.212.14 "ls -la /var/www/app/build && echo 'Deployment successful'"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i ~/.ssh/deploy_key azureuser@172.171.212.14 "ls -la /var/www/app/build && echo 'Deployment successful'"
 
-          # Clean up the SSH key
-          rm -f deploy_key
           echo "Deployment completed successfully!"
