@@ -33,9 +33,24 @@ jobs:
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
+          # Write the SSH key, preserving newlines
           printf "%s" "$DEPLOY_KEY" > deploy_key
+
+          # Set strict permissions
           chmod 600 deploy_key
+
+          # Optional: Debug file type and size
           ls -l deploy_key
           file deploy_key
+          head -n 2 deploy_key
+          tail -n 2 deploy_key
+
+          # Check SSH connectivity before deploying
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -i deploy_key azureuser@172.171.212.14 "echo SSH connection successful"
+
+          # Only deploy if SSH connection test passes
           scp -o StrictHostKeyChecking=no -i deploy_key -r ./build azureuser@172.171.212.14:/var/www/app
-          rm deploy_key
+
+          # Clean up
+          rm -f deploy_key
