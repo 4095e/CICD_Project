@@ -14,6 +14,12 @@ jobs:
           node-version: '16'
       - name: Install dependencies
         run: npm install
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        env:
+          SYNK_TOKEN: ${{ secrets.SYNK_TOKEN }}
+        with:
+          args: --severity-threshold=high
       - name: Build
         run: npm run build
       - name: Deploy to server
